@@ -1,23 +1,87 @@
 package cache
 
-import "time"
+import (
+	"time"
+)
 
 type Cache struct {
+	datas []*OneDate
 }
 
-func NewCache() Cache {
-	return Cache{}
+type OneDate struct {
+	key   string
+	val   string
+	check bool
+	exist bool
+	date  time.Time
 }
 
-func (receiver) Get(key string) (string, bool) {
+func NewCache() *Cache {
+	return &Cache{}
+}
+
+func (c *Cache) Get(key string) (string, bool) {
+	startTime := time.Now()
+
+	for _, v := range c.datas {
+		if v.key == key {
+			if !v.check {
+				return v.val, true
+			}
+			res := startTime.Before(v.date)
+			if res {
+				return v.val, true
+			} else {
+				v.exist = false
+				return "", false
+			}
+		}
+	}
+	return "", false
 
 }
 
-func (receiver) Put(key, value string) {
+func (c *Cache) Put(key, value string) {
+	for _, v := range c.datas {
+		if v.key == key {
+			v.val = value
+			return
+		}
+	}
+	data := &OneDate{
+		key:   key,
+		val:   value,
+		check: false,
+		exist: true,
+	}
+	c.datas = append(c.datas, data)
 }
 
-func (receiver) Keys() []string {
+func (c *Cache) Keys() []string {
+	var arr []string
+	for _, v := range c.datas {
+		if v.exist {
+			arr = append(arr, v.key)
+		}
+
+	}
+	return arr
 }
 
-func (receiver) PutTill(key, value string, deadline time.Time) {
+func (c *Cache) PutTill(key, value string, deadline time.Time) {
+	for _, v := range c.datas {
+		if v.key == key {
+			v.val = value
+			return
+		}
+	}
+	data := &OneDate{
+		key:   key,
+		val:   value,
+		check: true,
+		exist: true,
+		date:  deadline,
+	}
+	c.datas = append(c.datas, data)
+
 }
