@@ -1,87 +1,80 @@
 package cache
 
 import (
+	"sync"
 	"time"
 )
 
 type Cache struct {
-	datas []*OneDate
+	data sync.Map
 }
 
 type OneDate struct {
-	key   string
-	val   string
-	check bool
-	exist bool
-	date  time.Time
+	val               string
+	hasExpireDeadline bool
+	deadline          time.Time
 }
 
 func NewCache() *Cache {
-	return &Cache{}
+	return &Cache{
+		data: sync.Map{},
+	}
 }
 
 func (c *Cache) Get(key string) (string, bool) {
 	startTime := time.Now()
 
-	for _, v := range c.datas {
-		if v.key == key {
-			if !v.check {
-				return v.val, true
-			}
-			res := startTime.Before(v.date)
-			if res {
-				return v.val, true
-			} else {
-				v.exist = false
-				return "", false
-			}
-		}
+	val, ok := c.data.Load(key)
+
+	if !ok {
+		return "", false
 	}
+
+	v := val.(*OneDate)
+
+	if !v.hasExpireDeadline {
+		return v.val, true
+	}
+
+	res := startTime.Before(v.deadline)
+
+	if res {
+		return v.val, true
+	}
+
+	c.data.Delete(key)
 	return "", false
 
 }
 
 func (c *Cache) Put(key, value string) {
-	for _, v := range c.datas {
-		if v.key == key {
-			v.val = value
-			return
-		}
-	}
 	data := &OneDate{
-		key:   key,
-		val:   value,
-		check: false,
-		exist: true,
+		val:               value,
+		hasExpireDeadline: false,
 	}
-	c.datas = append(c.datas, data)
+	c.data.Store(key, data)
 }
 
 func (c *Cache) Keys() []string {
 	var arr []string
-	for _, v := range c.datas {
-		if v.exist {
-			arr = append(arr, v.key)
-		}
-
-	}
+	c.data.Range(func(key, value interface{}) bool {
+		arr = append(arr, key.(string))
+		return true
+	})
 	return arr
 }
 
 func (c *Cache) PutTill(key, value string, deadline time.Time) {
-	for _, v := range c.datas {
-		if v.key == key {
-			v.val = value
-			return
-		}
-	}
 	data := &OneDate{
-		key:   key,
-		val:   value,
-		check: true,
-		exist: true,
-		date:  deadline,
+		val:               value,
+		hasExpireDeadline: true,
+		deadline:          deadline,
 	}
-	c.datas = append(c.datas, data)
-
+	c.data.Store(key, data)
 }
+
+// func main() {
+// 	cache := NewCache()
+// 	cache.Put("one", "1")
+// 	fmt.Println(cache.Keys())
+// }
